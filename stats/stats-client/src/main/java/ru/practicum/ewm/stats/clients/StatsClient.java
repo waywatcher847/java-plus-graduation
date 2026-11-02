@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.DefaultUriBuilderFactory;
 import org.springframework.web.util.UriComponentsBuilder;
 import ru.practicum.ewm.stats.base.BaseClient;
+import ru.practicum.ewm.stats.base.StatsServiceDiscovery;
 import ru.practicum.ewm.stats.dto.StatHitResponseElement;
 
 import java.time.LocalDateTime;
@@ -23,19 +24,21 @@ import static ru.practicum.ewm.stats.base.ClientConstants.*;
 @Component
 public class StatsClient extends BaseClient {
 
-    public StatsClient(RestTemplateBuilder builder, @Value("${stats-server.url}") String serverUrl) {
+    private final StatsServiceDiscovery discovery;
+
+    public StatsClient(RestTemplateBuilder builder, StatsServiceDiscovery discovery) {
         super(
                 builder
-                        .uriTemplateHandler(new DefaultUriBuilderFactory(serverUrl))
                         .requestFactory(() -> new JdkClientHttpRequestFactory())
                         .build()
         );
+        this.discovery = discovery;
     }
 
     public List<StatHitResponseElement> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
         log.debug("Get stats from {} to {}, uris={}, unique={}", start, end, uris, unique);
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromPath(API_PREFIX_STATS)
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUri(discovery.makeUri(API_PREFIX_STATS))
                 .queryParam(PARAM_START, start.format(DATE_TIME_FORMATTER))
                 .queryParam(PARAM_END, end.format(DATE_TIME_FORMATTER))
                 .queryParam(PARAM_UNIQUE, unique);
