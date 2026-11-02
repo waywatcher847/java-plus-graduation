@@ -1,6 +1,9 @@
+server:
+  port: 0
+
 spring:
-  main:
-    banner-mode: OFF
+  application:
+    name: stats-server
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:6541/stats
@@ -15,12 +18,3 @@ spring:
   sql:
     init:
       mode: always
-
-eureka:
-  client:
-    registry-fetch-interval-seconds: 5
-  instance:
-    lease-renewal-interval-in-seconds: 5
-
-server:
-  port: 0

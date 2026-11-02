@@ -18,11 +18,7 @@ public class HitClient extends BaseClient {
     private final StatsServiceDiscovery discovery;
 
     public HitClient(RestTemplateBuilder builder, StatsServiceDiscovery discovery) {
-        super(
-                builder
-                        .requestFactory(() -> new JdkClientHttpRequestFactory())
-                        .build()
-        );
+        super(builder.requestFactory(() -> new JdkClientHttpRequestFactory()).build());
         this.discovery = discovery;
     }
 

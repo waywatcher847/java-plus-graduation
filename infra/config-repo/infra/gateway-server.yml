@@ -1,15 +1,43 @@
 server:
   port: 8080
+
 spring:
   cloud:
     gateway:
+      discovery:
+        locator:
+          enabled: false
       routes:
-        - id: main-service-api
+        - id: categories
           uri: lb://main-service
           predicates:
-            - Path=/admin/**,/users/**,/events/**,/categories/**,/compilations/**,/locations/**
-eureka:
-  client:
-    registry-fetch-interval-seconds: 5
-  instance:
-    lease-renewal-interval-in-seconds: 5
+            - Path=/categories,/categories/**
+        - id: events
+          uri: lb://main-service
+          predicates:
+            - Path=/events,/events/**
+        - id: locations
+          uri: lb://main-service
+          predicates:
+            - Path=/locations,/locations/**
+        - id: compilations
+          uri: lb://main-service
+          predicates:
+            - Path=/compilations,/compilations/**
+        - id: admin
+          uri: lb://main-service
+          predicates:
+            - Path=/admin/**
+        - id: users
+          uri: lb://main-service
+          predicates:
+            - Path=/users/**
+#
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: "health,gateway,info"
+#  endpoint:
+#    health:
+#      show-details: always

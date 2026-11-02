@@ -37,7 +37,7 @@ public class StatsServiceDiscovery {
             return instances.getFirst();
         } catch (Exception exception) {
             throw new StatsServerNotFound(
-                    "Ошибка обнаружения адреса сервиса статистики с id: " + serviceId, exception);
+                    "Stats service not found id: " + serviceId, exception);
         }
     }
 }
