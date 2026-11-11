@@ -31,7 +31,7 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     );
 
     @Modifying
-    @Query("DELETE FROM Subscription s WHERE s.follower.id = :userId OR s.followed.id = :userId")
+    @Query("DELETE FROM Subscription s WHERE s.followerId = :userId OR s.followedId = :userId")
     void deleteByFollowerIdOrFollowedId(@Param("userId") Long userId);
 
 }

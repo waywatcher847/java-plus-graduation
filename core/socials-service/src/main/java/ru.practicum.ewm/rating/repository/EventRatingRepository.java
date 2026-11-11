@@ -30,10 +30,10 @@ public interface EventRatingRepository extends JpaRepository<EventRating, Long> 
     );
 
     @Modifying
-    @Query("DELETE FROM EventRating r WHERE r.user.id = :userId")
+    @Query("DELETE FROM EventRating r WHERE r.userId = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 
     @Modifying
-    @Query("DELETE FROM EventRating r WHERE r.event.id IN :eventIds")
+    @Query("DELETE FROM EventRating r WHERE r.eventId IN :eventIds")
     void deleteByEventIdIn(@Param("eventIds") Collection<Long> eventIds);
 }

@@ -32,10 +32,10 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     }
 
     @Modifying
-    @Query("DELETE FROM Comment c WHERE c.author.id = :authorId")
+    @Query("DELETE FROM Comment c WHERE c.authorId = :authorId")
     void deleteByAuthorId(@Param("authorId") Long authorId);
 
     @Modifying
-    @Query("DELETE FROM Comment c WHERE c.event.id IN :eventIds")
+    @Query("DELETE FROM Comment c WHERE c.eventId IN :eventIds")
     void deleteByEventIdIn(@Param("eventIds") Collection<Long> eventIds);
 }

@@ -1,9 +1,9 @@
 server:
-  port: 0
+  port: 8084
 
 spring:
   application:
-    name: feature-service
+    name: socials-service
   jpa:
     hibernate:
       ddl-auto: none
@@ -17,7 +17,7 @@ spring:
       mode: always
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:6542/ewm_socials
+    url: jdbc:postgresql://localhost:6542/ewm-socials
     username: ewm
     password: ewm
   jackson:

@@ -1,5 +1,5 @@
 server:
-  port: 0
+  port: 8083
 
 spring:
   application:
@@ -17,7 +17,7 @@ spring:
       mode: always
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:6542/ewm_request
+    url: jdbc:postgresql://localhost:6542/ewm-request
     username: ewm
     password: ewm
   jackson:

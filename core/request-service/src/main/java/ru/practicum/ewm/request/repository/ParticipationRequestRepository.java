@@ -41,10 +41,10 @@ public interface ParticipationRequestRepository extends JpaRepository<Participat
     }
 
     @Modifying
-    @Query("DELETE FROM ParticipationRequest r WHERE r.requester.id = :requesterId")
+    @Query("DELETE FROM ParticipationRequest r WHERE r.requesterId = :requesterId")
     void deleteByRequesterId(@Param("requesterId") Long requesterId);
 
     @Modifying
-    @Query("DELETE FROM ParticipationRequest r WHERE r.event.id IN :eventIds")
+    @Query("DELETE FROM ParticipationRequest r WHERE r.eventId IN :eventIds")
     void deleteByEventIdIn(@Param("eventIds") Collection<Long> eventIds);
 }
