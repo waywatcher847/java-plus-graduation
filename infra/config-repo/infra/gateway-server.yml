@@ -8,30 +8,25 @@ spring:
         locator:
           enabled: false
       routes:
-        - id: categories
-          uri: lb://main-service
+        - id: request-service
+          uri: lb://request-service
           predicates:
-            - Path=/categories,/categories/**
-        - id: events
-          uri: lb://main-service
+            - Path=/users/*/requests/**,/users/*/events/*/requests/**,/internal/requests/**
+
+        - id: event-service
+          uri: lb://event-service
           predicates:
-            - Path=/events,/events/**
-        - id: locations
-          uri: lb://main-service
+            - Path=/admin/events/**,/admin/categories/**,/admin/compilations/**,/admin/locations/**,/events/**,/categories/**,/compilations/**,/locations/**,/users/*/events/**,/internal/events/**
+
+        - id: user-service
+          uri: lb://user-service
           predicates:
-            - Path=/locations,/locations/**
-        - id: compilations
-          uri: lb://main-service
+            - Path=/admin/users/**,/users/*/subscriptions/**,/internal/users/**
+        
+        - id: socials-service
+          uri: lb://socials-service
           predicates:
-            - Path=/compilations,/compilations/**
-        - id: admin
-          uri: lb://main-service
-          predicates:
-            - Path=/admin/**
-        - id: users
-          uri: lb://main-service
-          predicates:
-            - Path=/users/**
+            - Path=/admin/comments/**,/users/*/comments/**,/users/*/events/*/comments/**,/users/*/events/*/like,/users/*/events/*/dislike,/users/*/events/*/rating,/events/*/comments/**,/internal/socials/**
 
 management:
   endpoints:

@@ -9,8 +9,11 @@ services:
       - POSTGRES_PASSWORD=ewm
       - POSTGRES_USER=ewm
       - POSTGRES_DB=ewm
+    volumes:
+      - ewm_db_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      test: [ "CMD-SHELL", "pg_isready -q -U $$POSTGRES_USER" ]
       timeout: 5s
       interval: 5s
       retries: 10
@@ -24,8 +27,14 @@ services:
       - POSTGRES_PASSWORD=stats
       - POSTGRES_USER=stats
       - POSTGRES_DB=stats
+    volumes:
+      - stats_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      test: [ "CMD-SHELL", "pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER" ]
       timeout: 5s
       interval: 5s
       retries: 10
+
+volumes:
+  stats_db_data:
+  ewm_db_data:

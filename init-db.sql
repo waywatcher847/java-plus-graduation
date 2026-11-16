@@ -1,0 +1,4 @@
+CREATE DATABASE ewm_event;
+CREATE DATABASE ewm_socials;
+CREATE DATABASE ewm_request;
+CREATE DATABASE ewm_user;

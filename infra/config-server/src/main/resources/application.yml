@@ -1,5 +1,5 @@
 server:
-  port: 0
+  port: 8888
 
 spring:
   application:
@@ -23,4 +23,4 @@ eureka:
       defaultZone: http://localhost:8761/eureka
   instance:
     instance-id: ${spring.application.name}:${random.value}
-    lease-renewal-interval-in-seconds: 5
+    lease-renewal-interval-in-seconds: 10
