@@ -4,6 +4,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import ru.practicum.ewm.event.model.Event;
 import ru.practicum.ewm.model.EventState;
 
@@ -17,4 +20,8 @@ public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecific
     List<Event> findByIdIn(List<Long> ids);
 
     Optional<Event> findByIdAndState(Long id, EventState state);
+
+    @Modifying
+    @Query("DELETE FROM Event e WHERE e.initiatorId = :initiatorId")
+    void deleteByInitiatorId(@Param("initiatorId") Long initiatorId);
 }

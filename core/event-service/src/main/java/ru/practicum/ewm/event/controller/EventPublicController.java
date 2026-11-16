@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import ru.practicum.ewm.client.FallBackTemplate;
 import ru.practicum.ewm.client.StatsFeignClient;
 import ru.practicum.ewm.dto.event.EventFullDto;
+import ru.practicum.ewm.dto.event.EventSearchRequest;
 import ru.practicum.ewm.dto.event.EventShortDto;
 import ru.practicum.ewm.event.service.EventService;
 import ru.practicum.ewm.stats.dto.StatHitRequest;
@@ -23,20 +24,12 @@ public class EventPublicController {
     private final FallBackTemplate fallBack;
 
     @GetMapping("/events")
-    public List<EventShortDto> getPublished(@RequestParam(required = false) String text,
-                                            @RequestParam(required = false) List<Long> categories,
-                                            @RequestParam(required = false) Boolean paid,
-                                            @RequestParam(required = false) String rangeStart,
-                                            @RequestParam(required = false) String rangeEnd,
-                                            @RequestParam(required = false) Boolean onlyAvailable,
-                                            @RequestParam(required = false) String sort,
-                                            @RequestParam(defaultValue = "0") Integer from,
-                                            @RequestParam(defaultValue = "10") Integer size,
+    public List<EventShortDto> getPublished(EventSearchRequest request,
                                             @RequestHeader(value = "X-EWM-UserId", required = false) Long userId,
-                                            HttpServletRequest request) {
-        saveHit(request);
-        return eventService.getPublished(text, categories, paid, rangeStart, rangeEnd,
-                onlyAvailable, sort, from, size, userId);
+                                            HttpServletRequest httpRequest) {
+        request.setUserId(userId);
+        saveHit(httpRequest);
+        return eventService.getPublished(request);
     }
 
     @GetMapping("/events/{id}")

@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.ewm.client.socials.SocialsReader;
+import ru.practicum.ewm.client.user.UserReader;
+import ru.practicum.ewm.dto.user.UserShortDto;
 import ru.practicum.ewm.exception.LocationNotFoundException;
 import ru.practicum.ewm.common.util.EventUtil;
 import ru.practicum.ewm.dto.event.EventShortDto;
@@ -26,6 +28,8 @@ import ru.practicum.ewm.dto.ratings.RatingStatsDto;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 
 @Slf4j
@@ -37,6 +41,7 @@ public class LocationServiceImpl implements LocationService {
     private final LocationRepository locationRepository;
     private final EventRepository eventRepository;
     private final SocialsReader socialsReader;
+    private final UserReader userReader;
     private final LocationMapper mapper;
     private final EventUtil eventUtil;
 
@@ -116,13 +121,21 @@ public class LocationServiceImpl implements LocationService {
         Map<Long, RatingStatsDto> ratings = socialsReader.aggregate(eventIds, null).getRatings();
         Map<Long, Long> commentCounts = getCommentCounts(eventIds);
 
+        Set<Long> initiatorIds = events.stream()
+                .map(Event::getInitiatorId)
+                .collect(Collectors.toSet());
+        Map<Long, UserShortDto> initiators = userReader.findShortByIds(initiatorIds);
+
         return events.stream()
                 .map(event -> EventMapper.toEventShortDto(
                         event,
                         views.getOrDefault(event.getId(), 0L),
                         confirmed.getOrDefault(event.getId(), 0L),
                         ratings.getOrDefault(event.getId(), RatingStatsDto.EMPTY),
-                        commentCounts.getOrDefault(event.getId(), 0L)))
+                        commentCounts.getOrDefault(event.getId(), 0L),
+                        initiators.getOrDefault(event.getInitiatorId(),
+                                new UserShortDto(event.getInitiatorId(), null))
+                ))
                 .toList();
     }
 

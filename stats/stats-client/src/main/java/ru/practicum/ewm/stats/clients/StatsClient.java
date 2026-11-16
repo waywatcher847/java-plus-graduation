@@ -1,7 +1,6 @@
 package ru.practicum.ewm.stats.clients;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -36,10 +35,7 @@ public class StatsClient extends BaseClient {
 
         URI baseUri = discovery.makeUri(API_PREFIX_STATS);
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUri(baseUri)
-                .queryParam(PARAM_START, start.format(DATE_TIME_FORMATTER))
-                .queryParam(PARAM_END, end.format(DATE_TIME_FORMATTER))
-                .queryParam(PARAM_UNIQUE, unique);
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUri(baseUri).queryParam(PARAM_START, start.format(DATE_TIME_FORMATTER)).queryParam(PARAM_END, end.format(DATE_TIME_FORMATTER)).queryParam(PARAM_UNIQUE, unique);
 
         if (uris != null && !uris.isEmpty()) {
             builder.queryParam(PARAM_URIS, String.join(",", uris));
@@ -47,13 +43,8 @@ public class StatsClient extends BaseClient {
 
         URI finalUri = builder.build().toUri();
 
-        ResponseEntity<List<StatHitResponseElement>> response = rest.exchange(
-                finalUri,
-                HttpMethod.GET,
-                null,
-                new ParameterizedTypeReference<List<StatHitResponseElement>>() {
-                }
-        );
+        ResponseEntity<List<StatHitResponseElement>> response = rest.exchange(finalUri, HttpMethod.GET, null, new ParameterizedTypeReference<List<StatHitResponseElement>>() {
+        });
         List<StatHitResponseElement> body = response.getBody();
         return body != null ? body : Collections.emptyList();
     }

@@ -2,7 +2,6 @@ package ru.practicum.ewm.client.user;
 
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.ewm.dto.compilation.NewCompilationDto;
 import ru.practicum.ewm.dto.user.UserDto;
 
 import java.util.List;

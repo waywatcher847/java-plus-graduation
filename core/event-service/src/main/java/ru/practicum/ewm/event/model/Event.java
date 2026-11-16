@@ -40,9 +40,6 @@ public class Event {
     @Column(name = "initiator_id", nullable = false)
     private Long initiatorId;
 
-    @Column(name = "initiator_name", nullable = false)
-    private String initiatorName;
-
     @Embedded
     private Location location;
 

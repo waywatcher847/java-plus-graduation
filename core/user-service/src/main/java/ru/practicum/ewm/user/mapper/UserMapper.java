@@ -1,8 +1,6 @@
 package ru.practicum.ewm.user.mapper;
 
 import org.springframework.stereotype.Component;
-import ru.practicum.ewm.dto.compilation.NewCompilationDto;
-import ru.practicum.ewm.dto.ratings.RatingStatsDto;
 import ru.practicum.ewm.dto.user.NewUserRequest;
 import ru.practicum.ewm.dto.user.UserDto;
 import ru.practicum.ewm.dto.user.UserShortDto;

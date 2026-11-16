@@ -27,7 +27,7 @@ public class EventUtil {
     public Map<Long, Long> views(Collection<Long> eventIds) {
         if (eventIds.isEmpty()) return Map.of();
         var uris = eventIds.stream().map(id -> "/events/" + id).toList();
-        return resilience.read("statistics", () -> stats.stats("2020-01-01 00:00:00",
+        return resilience.read("statistics", () -> stats.stats(LocalDateTime.MIN.format(FORMAT),
                         LocalDateTime.now().format(FORMAT), uris, true).stream()
                 .collect(Collectors.toMap(hit -> Long.valueOf(hit.getUri().substring("/events/".length())),
                         StatHitResponseElement::getHits, Long::sum)), Map::of);

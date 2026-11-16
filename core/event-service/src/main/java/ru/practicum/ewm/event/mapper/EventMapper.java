@@ -6,7 +6,6 @@ import ru.practicum.ewm.dto.category.CategoryDto;
 import ru.practicum.ewm.dto.event.*;
 import ru.practicum.ewm.dto.location.LocationDto;
 import ru.practicum.ewm.dto.ratings.RatingStatsDto;
-import ru.practicum.ewm.dto.user.UserDto;
 import ru.practicum.ewm.dto.user.UserShortDto;
 import ru.practicum.ewm.event.model.Event;
 import ru.practicum.ewm.model.EventState;
@@ -20,14 +19,14 @@ public class EventMapper {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public Event toEvent(NewEventDto dto, Category category, UserDto initiator) {
+    public Event toEvent(NewEventDto dto, Category category, Long initiatorId) {
         return Event.builder()
                 .annotation(dto.getAnnotation())
                 .category(category)
                 .createdOn(LocalDateTime.now())
                 .description(dto.getDescription())
                 .eventDate(LocalDateTime.parse(dto.getEventDate(), FORMATTER))
-                .initiatorId(initiator.getId()).initiatorName(initiator.getName())
+                .initiatorId(initiatorId)
                 .location(new Location(dto.getLocation().getLat(), dto.getLocation().getLon()))
                 .paid(dto.getPaid() != null ? dto.getPaid() : false)
                 .participantLimit(dto.getParticipantLimit() != null ? dto.getParticipantLimit() : 0)
@@ -38,7 +37,8 @@ public class EventMapper {
     }
 
     public EventFullDto toEventFullDto(Event event, Long views, Long confirmedRequests,
-                                       RatingStatsDto ratingStats, Long commentCount) {
+                                       RatingStatsDto ratingStats, Long commentCount,
+                                       UserShortDto initiator) {
         return EventFullDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
@@ -47,7 +47,7 @@ public class EventMapper {
                 .createdOn(event.getCreatedOn() != null ? event.getCreatedOn().format(FORMATTER) : null)
                 .description(event.getDescription())
                 .eventDate(event.getEventDate().format(FORMATTER))
-                .initiator(new UserShortDto(event.getInitiatorId(), event.getInitiatorName()))
+                .initiator(initiator)
                 .location(new LocationDto(event.getLocation().getLat(), event.getLocation().getLon()))
                 .paid(event.getPaid())
                 .participantLimit(event.getParticipantLimit())
@@ -64,14 +64,15 @@ public class EventMapper {
     }
 
     public static EventShortDto toEventShortDto(Event event, Long views, Long confirmedRequests,
-                                                RatingStatsDto ratingStats, Long commentCount) {
+                                                RatingStatsDto ratingStats, Long commentCount,
+                                                UserShortDto initiator) {
         return EventShortDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
                 .category(new CategoryDto(event.getCategory().getId(), event.getCategory().getName()))
                 .confirmedRequests(confirmedRequests)
                 .eventDate(event.getEventDate().format(FORMATTER))
-                .initiator(new UserShortDto(event.getInitiatorId(), event.getInitiatorName()))
+                .initiator(initiator)
                 .paid(event.getPaid())
                 .title(event.getTitle())
                 .views(views)
@@ -82,65 +83,11 @@ public class EventMapper {
                 .build();
     }
 
-    public static void updateEventFromUserRequest(Event event, UpdateEventUserRequest dto,
-                                                  Category category) {
-        if (dto.getAnnotation() != null) {
-            event.setAnnotation(dto.getAnnotation());
-        }
-        if (category != null) {
-            event.setCategory(category);
-        }
-        if (dto.getDescription() != null) {
-            event.setDescription(dto.getDescription());
-        }
-        if (dto.getEventDate() != null) {
-            event.setEventDate(LocalDateTime.parse(dto.getEventDate(), FORMATTER));
-        }
-        if (dto.getLocation() != null) {
-            event.setLocation(new Location(dto.getLocation().getLat(), dto.getLocation().getLon()));
-        }
-        if (dto.getPaid() != null) {
-            event.setPaid(dto.getPaid());
-        }
-        if (dto.getParticipantLimit() != null) {
-            event.setParticipantLimit(dto.getParticipantLimit());
-        }
-        if (dto.getRequestModeration() != null) {
-            event.setRequestModeration(dto.getRequestModeration());
-        }
-        if (dto.getTitle() != null) {
-            event.setTitle(dto.getTitle());
-        }
+    public static void updateEventFromUserRequest(Event event, UpdateEventUserRequest dto, Category category) {
+        EventUpdater.apply(event, dto, category);
     }
 
-    public static void updateEventFromAdminRequest(Event event, UpdateEventAdminRequest dto,
-                                                   Category category) {
-        if (dto.getAnnotation() != null) {
-            event.setAnnotation(dto.getAnnotation());
-        }
-        if (category != null) {
-            event.setCategory(category);
-        }
-        if (dto.getDescription() != null) {
-            event.setDescription(dto.getDescription());
-        }
-        if (dto.getEventDate() != null) {
-            event.setEventDate(LocalDateTime.parse(dto.getEventDate(), FORMATTER));
-        }
-        if (dto.getLocation() != null) {
-            event.setLocation(new Location(dto.getLocation().getLat(), dto.getLocation().getLon()));
-        }
-        if (dto.getPaid() != null) {
-            event.setPaid(dto.getPaid());
-        }
-        if (dto.getParticipantLimit() != null) {
-            event.setParticipantLimit(dto.getParticipantLimit());
-        }
-        if (dto.getRequestModeration() != null) {
-            event.setRequestModeration(dto.getRequestModeration());
-        }
-        if (dto.getTitle() != null) {
-            event.setTitle(dto.getTitle());
-        }
+    public static void updateEventFromAdminRequest(Event event, UpdateEventAdminRequest dto, Category category) {
+        EventUpdater.apply(event, dto, category);
     }
 }

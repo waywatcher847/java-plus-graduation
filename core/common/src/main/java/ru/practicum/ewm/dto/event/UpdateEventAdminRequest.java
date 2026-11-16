@@ -11,7 +11,7 @@ import ru.practicum.ewm.dto.location.LocationDto;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UpdateEventAdminRequest {
+public class UpdateEventAdminRequest implements EventUpdateRequest {
 
     @Size(min = 20, max = 2000)
     private String annotation;

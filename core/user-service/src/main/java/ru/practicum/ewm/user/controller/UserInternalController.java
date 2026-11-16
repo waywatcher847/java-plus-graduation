@@ -2,7 +2,6 @@ package ru.practicum.ewm.user.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.ewm.dto.compilation.NewCompilationDto;
 import ru.practicum.ewm.dto.user.UserDto;
 import ru.practicum.ewm.exception.UserNotFoundException;
 import ru.practicum.ewm.user.mapper.UserMapper;
