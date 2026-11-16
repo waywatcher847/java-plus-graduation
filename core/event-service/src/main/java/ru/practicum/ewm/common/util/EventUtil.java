@@ -18,6 +18,8 @@ public class EventUtil {
     private final RequestClient requests;
     private final StatsFeignClient stats;
     private final FallBackTemplate resilience;
+    String safeStart = "2000-01-01 00:00:00";
+
 
     public Map<Long, Long> confirmed(Collection<Long> eventIds) {
         if (eventIds.isEmpty()) return Map.of();
@@ -27,7 +29,7 @@ public class EventUtil {
     public Map<Long, Long> views(Collection<Long> eventIds) {
         if (eventIds.isEmpty()) return Map.of();
         var uris = eventIds.stream().map(id -> "/events/" + id).toList();
-        return resilience.read("statistics", () -> stats.stats(LocalDateTime.MIN.format(FORMAT),
+        return resilience.read("statistics", () -> stats.stats(safeStart,
                         LocalDateTime.now().format(FORMAT), uris, true).stream()
                 .collect(Collectors.toMap(hit -> Long.valueOf(hit.getUri().substring("/events/".length())),
                         StatHitResponseElement::getHits, Long::sum)), Map::of);
