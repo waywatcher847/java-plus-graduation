@@ -1,0 +1,22 @@
+grpc:
+  server:
+    port: 9091
+
+spring:
+  application:
+    name: analyzer
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      discovery:
+        enabled: true
+        service-id: config-server
+      name: analyzer
+  eureka:
+    client:
+      serviceUrl:
+        defaultZone: http://localhost:8761/eureka/
+    instance:
+      instance-id: ${spring.application.name}:${server.port}
+      prefer-ip-address: true

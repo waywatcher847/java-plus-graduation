@@ -35,7 +35,7 @@ public class EventShortDto {
 
     private Long dislikes;
 
-    private Long rating;
+    private Double rating;
 
     private Long commentCount;
 }

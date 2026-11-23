@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.ewm.client.CollectorGrpcClient;
 import ru.practicum.ewm.dto.event.EventRequestStatusUpdateRequest;
 import ru.practicum.ewm.dto.event.EventRequestStatusUpdateResult;
 import ru.practicum.ewm.dto.request.ParticipationRequestDto;
@@ -39,6 +40,7 @@ public class RequestServiceImpl implements RequestService {
     private final EventReader eventRepository;
     private final RequestMapper mapper;
     private final RequestLock requestLock;
+    private final CollectorGrpcClient collectorClient;
 
     @Override
     @Transactional
@@ -80,7 +82,11 @@ public class RequestServiceImpl implements RequestService {
 
         request = requestRepository.save(request);
         log.debug("Request created: {} for event {}", request.getId(), eventId);
+
+        collectorClient.sendRegister(userId, eventId);
+        log.debug("Registration info sent to collector for user {} and event {}", userId, eventId);
         return mapper.toRequestDto(request);
+
     }
 
     @Override

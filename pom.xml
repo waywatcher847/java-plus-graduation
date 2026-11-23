@@ -34,10 +34,25 @@
         <spotbugs.maven.plugin.version>4.8.5.0</spotbugs.maven.plugin.version>
         <commons-collections4.version>4.5.0</commons-collections4.version>
         <spring.cloud.version>2023.0.1</spring.cloud.version>
+        <avro.version>1.11.3</avro.version>
+        <avro-maven-plugin.version>${avro.version}</avro-maven-plugin.version>
+        <protobuf.version>3.23.4</protobuf.version>
+        <grpc.version>1.63.0</grpc.version>
+        <protobuf-plugin.version>2.4.0</protobuf-plugin.version>
+        <grpc-spring-boot-starter.version>3.1.0.RELEASE</grpc-spring-boot-starter.version>
+        <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+        <protobuf.version>3.25.3</protobuf.version>
+        <grpc.version>1.62.2</grpc.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro</artifactId>
+                <version>${avro.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-ui</artifactId>
@@ -52,6 +67,13 @@
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring.cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-bom</artifactId>
+                <version>1.64.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

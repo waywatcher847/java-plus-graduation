@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.ewm.client.AnalyzerGrpcClient;
 import ru.practicum.ewm.client.socials.SocialsAggregated;
 import ru.practicum.ewm.client.socials.SocialsReader;
 import ru.practicum.ewm.client.user.UserReader;
@@ -40,6 +41,7 @@ public class CompilationServiceImpl implements CompilationService {
     private final EventUtil eventUtil;
     private final SocialsReader socialsReader;
     private final UserReader userReader;
+    private final AnalyzerGrpcClient analyzerClient;
 
     @Override
     @Transactional
@@ -130,13 +132,11 @@ public class CompilationServiceImpl implements CompilationService {
     }
 
     private CompilationContext fetchContext(List<Compilation> compilations) {
-
         List<Long> eventIds = compilations.stream()
                 .flatMap(compilation -> compilation.getEvents() != null ? compilation.getEvents().stream() : Stream.empty())
                 .map(link -> link.getEvent().getId())
                 .distinct()
                 .toList();
-
         Set<Long> initiatorIds = compilations.stream()
                 .flatMap(compilation -> compilation.getEvents() != null ? compilation.getEvents().stream() : Stream.empty())
                 .map(link -> link.getEvent().getInitiatorId())
@@ -144,23 +144,30 @@ public class CompilationServiceImpl implements CompilationService {
 
         if (eventIds.isEmpty()) {
             return CompilationContext.builder()
-                    .views(Map.of())
-                    .confirmed(Map.of())
                     .ratings(Map.of())
+                    .confirmed(Map.of())
+                    .ratingStats(Map.of())
                     .comments(Map.of())
                     .initiators(Map.of())
                     .build();
         }
 
         SocialsAggregated aggregatedSocials = socialsReader.aggregate(eventIds, null);
-        Map<Long, Long> views = eventUtil.views(eventIds);
         Map<Long, Long> confirmed = eventUtil.confirmed(eventIds);
+
+        Map<Long, Double> ratings = eventIds.stream()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        id -> analyzerClient.getEventRating(id),
+                        (a, b) -> a
+                ));
+
         Map<Long, UserShortDto> initiators = userReader.findShortByIds(initiatorIds);
 
         return CompilationContext.builder()
-                .views(views)
+                .ratings(ratings)
                 .confirmed(confirmed)
-                .ratings(aggregatedSocials.getRatings())
+                .ratingStats(aggregatedSocials.getRatings())
                 .comments(aggregatedSocials.getComments())
                 .initiators(initiators)
                 .build();

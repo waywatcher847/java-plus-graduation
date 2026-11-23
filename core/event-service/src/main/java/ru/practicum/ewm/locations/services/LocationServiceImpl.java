@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.ewm.client.AnalyzerGrpcClient;
 import ru.practicum.ewm.client.socials.SocialsReader;
 import ru.practicum.ewm.client.user.UserReader;
 import ru.practicum.ewm.dto.user.UserShortDto;
@@ -24,27 +25,24 @@ import ru.practicum.ewm.locations.models.Location;
 import ru.practicum.ewm.locations.repository.LocationRepository;
 import ru.practicum.ewm.dto.ratings.RatingStatsDto;
 
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LocationServiceImpl implements LocationService {
-
     private final LocationRepository locationRepository;
     private final EventRepository eventRepository;
     private final SocialsReader socialsReader;
     private final UserReader userReader;
     private final LocationMapper mapper;
     private final EventUtil eventUtil;
-
+    private final AnalyzerGrpcClient analyzerClient;
 
     @Override
     @Transactional
@@ -64,13 +62,11 @@ public class LocationServiceImpl implements LocationService {
         log.debug("LocationService->patch id={}. {}", locId, dto);
         Location location = locationRepository.findById(locId)
                 .orElseThrow(() -> new LocationNotFoundException(locId));
-
         Event newEvent = null;
         if (dto.getEventId() != null) {
             newEvent = eventRepository.findById(dto.getEventId())
                     .orElseThrow(() -> new EventNotFoundException(dto.getEventId()));
         }
-
         mapper.update(dto, location, newEvent);
         Location saved = locationRepository.save(location);
         return mapper.toDto(saved);
@@ -106,30 +102,31 @@ public class LocationServiceImpl implements LocationService {
     public List<EventShortDto> getEventsInLocation(LocationSearchRequest request) {
         log.debug("LocationService->getEventsInLocation: lat={}, lon={}, radius={}",
                 request.getLat(), request.getLon(), request.getRadius());
-
         List<Long> eventIds = locationRepository.findEventIdsWithinRadius(
                 request.getLat(), request.getLon(), request.getRadius());
-
         if (eventIds.isEmpty()) {
             return Collections.emptyList();
         }
-
         List<Event> events = eventRepository.findAllById(eventIds);
-
-        Map<Long, Long> views = eventUtil.views(eventIds);
         Map<Long, Long> confirmed = eventUtil.confirmed(eventIds);
         Map<Long, RatingStatsDto> ratings = socialsReader.aggregate(eventIds, null).getRatings();
         Map<Long, Long> commentCounts = getCommentCounts(eventIds);
-
         Set<Long> initiatorIds = events.stream()
                 .map(Event::getInitiatorId)
                 .collect(Collectors.toSet());
         Map<Long, UserShortDto> initiators = userReader.findShortByIds(initiatorIds);
 
+        Map<Long, Double> eventRatings = eventIds.stream()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        analyzerClient::getEventRating,
+                        (a, b) -> a
+                ));
+
         return events.stream()
                 .map(event -> EventMapper.toEventShortDto(
                         event,
-                        views.getOrDefault(event.getId(), 0L),
+                        eventRatings.getOrDefault(event.getId(), 0.0),
                         confirmed.getOrDefault(event.getId(), 0L),
                         ratings.getOrDefault(event.getId(), RatingStatsDto.EMPTY),
                         commentCounts.getOrDefault(event.getId(), 0L),
