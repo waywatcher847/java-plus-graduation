@@ -52,8 +52,27 @@ resilience4j:
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
         slidingWindowSize: 10
+      analyzer:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+      collector:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
   retry:
     instances:
       read:
         maxAttempts: 2
         waitDuration: 100ms
+
+grpc:
+  client:
+    analyzer:
+      timeout-ms: 2000
+    collector:
+      timeout-ms: 2000

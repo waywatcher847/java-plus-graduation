@@ -3,12 +3,14 @@ package ru.practicum.ewm.client;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import ru.practicum.grpc.stats.service.collector.ActionTypeProto;
 import ru.practicum.grpc.stats.service.collector.UserActionControllerGrpc;
 import ru.practicum.grpc.stats.service.collector.UserActionProto;
 
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -17,6 +19,15 @@ public class CollectorGrpcClient {
 
     @GrpcClient("collector")
     private UserActionControllerGrpc.UserActionControllerBlockingStub collectorStub;
+
+    private final FallBackTemplate resilience;
+
+    @Value("${grpc.client.collector.timeout-ms:2000}")
+    private long timeoutMs;
+
+    private UserActionControllerGrpc.UserActionControllerBlockingStub withDeadline() {
+        return collectorStub.withDeadlineAfter(timeoutMs, TimeUnit.MILLISECONDS);
+    }
 
     public void sendUserAction(long userId, long eventId, ActionTypeProto actionType) {
         log.debug("Отправка действия {} для пользователя {} и мероприятия {}", actionType, userId, eventId);
@@ -29,7 +40,8 @@ public class CollectorGrpcClient {
                         .setNanos(Instant.now().getNano())
                         .build())
                 .build();
-        collectorStub.collectUserAction(request);
+
+        resilience.bestEffort("collector", () -> withDeadline().collectUserAction(request));
     }
 
     public void sendView(long userId, long eventId) {
