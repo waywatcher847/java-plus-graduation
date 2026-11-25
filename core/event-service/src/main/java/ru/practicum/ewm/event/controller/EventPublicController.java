@@ -1,18 +1,13 @@
 package ru.practicum.ewm.event.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.ewm.client.CollectorGrpcClient;
-import ru.practicum.ewm.client.FallBackTemplate;
-import ru.practicum.ewm.client.StatsFeignClient;
 import ru.practicum.ewm.dto.event.EventFullDto;
 import ru.practicum.ewm.dto.event.EventSearchRequest;
 import ru.practicum.ewm.dto.event.EventShortDto;
 import ru.practicum.ewm.event.service.EventService;
-import ru.practicum.ewm.stats.dto.StatHitRequest;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController

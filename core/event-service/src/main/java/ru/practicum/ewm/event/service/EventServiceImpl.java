@@ -389,10 +389,6 @@ public class EventServiceImpl implements EventService {
         return ratings.getOrDefault(eventId, RatingStatsDto.EMPTY);
     }
 
-    private Map<Long, Long> getCommentCounts(Collection<Event> events) {
-        return socialsReader.aggregate(events.stream().map(Event::getId).toList(), null).getComments();
-    }
-
     private Long getCommentCount(Long eventId) {
         return socialsReader.aggregate(List.of(eventId), null).getComments().getOrDefault(eventId, 0L);
     }

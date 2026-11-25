@@ -38,8 +38,4 @@ public class EventUtil {
     public Long getConfirmedRequests(Long id) {
         return confirmed(List.of(id)).getOrDefault(id, 0L);
     }
-
-    public Long getViews(Long id) {
-        return views(List.of(id)).getOrDefault(id, 0L);
-    }
 }
