@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.ewm.client.AnalyzerGrpcClient;
+import ru.practicum.ewm.client.CollectorGrpcClient;
 import ru.practicum.ewm.dto.event.*;
 import ru.practicum.ewm.dto.ratings.RatingStatsDto;
 import ru.practicum.ewm.dto.user.UserDto;
@@ -27,6 +29,7 @@ import ru.practicum.ewm.exception.ValidationException;
 
 import ru.practicum.ewm.exception.UserNotFoundException;
 import ru.practicum.ewm.client.user.UserReader;
+import ru.practicum.grpc.stats.service.dashboard.RecommendedEventProto;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -38,66 +41,57 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class EventServiceImpl implements EventService {
-
     private static final String PUBLISH_EVENT = "PUBLISH_EVENT";
     private static final String REJECT_EVENT = "REJECT_EVENT";
-
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final long HOURS_BEFORE_EVENT = 2;
 
     private final EventRepository eventRepository;
     private final UserReader userRepository;
     private final CategoryRepository categoryRepository;
-
     private final SocialsReader socialsReader;
     private final EventUtil eventUtil;
     private final EventMapper mapper;
-
+    private final AnalyzerGrpcClient analyzerClient;
+    private final CollectorGrpcClient collectorClient;
 
     @Override
     @Transactional
     public EventFullDto create(Long userId, NewEventDto dto) {
         UserDto user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-
         Category category = categoryRepository.findById(dto.getCategory())
                 .orElseThrow(() -> new CategoryNotFoundException(dto.getCategory()));
-
         LocalDateTime eventDate = LocalDateTime.parse(dto.getEventDate(), FORMATTER);
         if (eventDate.isBefore(LocalDateTime.now().plusHours(HOURS_BEFORE_EVENT))) {
             throw new ValidationException("Field: eventDate. Error: должно содержать дату, которая еще не наступила. Value: " + dto.getEventDate());
         }
-
         Event event = mapper.toEvent(dto, category, user.getId());
         event = eventRepository.save(event);
         log.debug("Event created: {} by user {}", event.getId(), userId);
-
         UserShortDto initiator = new UserShortDto(user.getId(), user.getName());
-        return mapper.toEventFullDto(event, 0L, 0L, RatingStatsDto.EMPTY, 0L, initiator);
+        return mapper.toEventFullDto(event, 0.0, 0L, RatingStatsDto.EMPTY, 0L, initiator);
     }
 
     @Override
     public List<EventShortDto> getAllByUser(Long userId, Integer from, Integer size) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-
         PageRequest page = PageRequest.of(from / size, size);
         List<Event> events = eventRepository.findByInitiatorId(userId, page).getContent();
-
-        Map<Long, Long> views = eventUtil.views(events.stream().map(Event::getId).toList());
-        Map<Long, Long> confirmedCounts = eventUtil.confirmed(events.stream().map(Event::getId).toList());
-        var aggregatedSocials = socialsReader.aggregate(events.stream().map(Event::getId).toList(), null);
-        Map<Long, RatingStatsDto> ratings = aggregatedSocials.getRatings();
+        List<Long> eventIds = events.stream().map(Event::getId).toList();
+        Map<Long, Double> ratings = loadRatings(eventIds);
+        Map<Long, Long> confirmedCounts = eventUtil.confirmed(eventIds);
+        var aggregatedSocials = socialsReader.aggregate(eventIds, null);
+        Map<Long, RatingStatsDto> ratingStats = aggregatedSocials.getRatings();
         Map<Long, Long> commentCounts = aggregatedSocials.getComments();
-
         Map<Long, UserShortDto> initiators = loadInitiators(events);
-
         return events.stream()
                 .map(e -> mapper.toEventShortDto(
                         e,
-                        views.getOrDefault(e.getId(), 0L),
+                        ratings.getOrDefault(e.getId(), 0.0),
                         confirmedCounts.getOrDefault(e.getId(), 0L),
-                        ratingFor(e.getId(), ratings),
+                        ratingFor(e.getId(), ratingStats),
                         countFor(e.getId(), commentCounts),
                         initiators.getOrDefault(e.getInitiatorId(), new UserShortDto(e.getInitiatorId(), null))
                 ))
@@ -108,14 +102,12 @@ public class EventServiceImpl implements EventService {
     public EventFullDto getByUserAndEvent(Long userId, Long eventId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EventNotFoundException(eventId));
-
         if (!event.getInitiatorId().equals(userId)) {
             throw new EventNotFoundException(eventId);
         }
-        return mapper.toEventFullDto(event, eventUtil.getViews(eventId),
+        return mapper.toEventFullDto(event, getRating(eventId),
                 eventUtil.getConfirmedRequests(eventId),
-                getRating(eventId), getCommentCount(eventId), loadInitiator(event.getInitiatorId()
-                ));
+                getRatingStats(eventId), getCommentCount(eventId), loadInitiator(event.getInitiatorId()));
     }
 
     @Override
@@ -123,30 +115,24 @@ public class EventServiceImpl implements EventService {
     public EventFullDto updateByUser(Long userId, Long eventId, UpdateEventUserRequest dto) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EventNotFoundException(eventId));
-
         if (!event.getInitiatorId().equals(userId)) {
             throw new EventNotFoundException(eventId);
         }
-
         if (event.getState() == EventState.PUBLISHED) {
             throw new ConflictException("Only pending or canceled events can be changed");
         }
-
         if (dto.getEventDate() != null) {
             LocalDateTime newDate = LocalDateTime.parse(dto.getEventDate(), FORMATTER);
             if (newDate.isBefore(LocalDateTime.now().plusHours(HOURS_BEFORE_EVENT))) {
                 throw new ValidationException("Field: eventDate. Error: должно содержать дату, которая еще не наступила. Value: " + dto.getEventDate());
             }
         }
-
         Category category = null;
         if (dto.getCategory() != null) {
             category = categoryRepository.findById(dto.getCategory())
                     .orElseThrow(() -> new CategoryNotFoundException(dto.getCategory()));
         }
-
         EventMapper.updateEventFromUserRequest(event, dto, category);
-
         if (dto.getStateAction() != null) {
             switch (dto.getStateAction()) {
                 case "SEND_TO_REVIEW":
@@ -159,12 +145,10 @@ public class EventServiceImpl implements EventService {
                     throw new ValidationException("Unknown state action: " + dto.getStateAction());
             }
         }
-
         event = eventRepository.save(event);
-
         log.debug("Event updated by user: {}", eventId);
-        return mapper.toEventFullDto(event, eventUtil.getViews(eventId),
-                eventUtil.getConfirmedRequests(eventId), getRating(eventId), getCommentCount(eventId),
+        return mapper.toEventFullDto(event, getRating(eventId),
+                eventUtil.getConfirmedRequests(eventId), getRatingStats(eventId), getCommentCount(eventId),
                 loadInitiator(event.getInitiatorId()));
     }
 
@@ -177,36 +161,30 @@ public class EventServiceImpl implements EventService {
         String rangeEnd = request.getRangeEnd();
         int from = request.getFrom() != null ? request.getFrom() : 0;
         int size = request.getSize() != null ? request.getSize() : 10;
-
         List<EventState> stateEnums = null;
         if (states != null && !states.isEmpty()) {
             stateEnums = states.stream().map(EventState::valueOf).collect(Collectors.toList());
         }
-
         LocalDateTime start = rangeStart != null ? LocalDateTime.parse(rangeStart, FORMATTER) : null;
         LocalDateTime end = rangeEnd != null ? LocalDateTime.parse(rangeEnd, FORMATTER) : null;
-
         if (start != null && end != null && start.isAfter(end)) {
             throw new ValidationException("Field: rangeStart. Error: start must be before end. Value: rangeStart=" + rangeStart + ", rangeEnd=" + rangeEnd);
         }
-
         PageRequest page = PageRequest.of(from / size, size);
         List<Event> events = eventRepository.findAll(
                 EventSpecification.eventsByAdmin(users, stateEnums, categories, start, end),
                 page
         ).getContent();
-
-        var aggregatedSocials = socialsReader.aggregate(events.stream().map(Event::getId).toList(), null);
-        Map<Long, Long> views = eventUtil.views(events.stream().map(Event::getId).toList());
-        Map<Long, Long> confirmedCounts = eventUtil.confirmed(events.stream().map(Event::getId).toList());
-        Map<Long, RatingStatsDto> ratings = aggregatedSocials.getRatings();
+        List<Long> eventIds = events.stream().map(Event::getId).toList();
+        var aggregatedSocials = socialsReader.aggregate(eventIds, null);
+        Map<Long, Double> ratings = loadRatings(eventIds);
+        Map<Long, Long> confirmedCounts = eventUtil.confirmed(eventIds);
+        Map<Long, RatingStatsDto> ratingStats = aggregatedSocials.getRatings();
         Map<Long, Long> commentCounts = aggregatedSocials.getComments();
-
         Map<Long, UserShortDto> initiators = loadInitiators(events);
-
         return events.stream()
-                .map(e -> mapper.toEventFullDto(e, views.getOrDefault(e.getId(), 0L),
-                        confirmedCounts.getOrDefault(e.getId(), 0L), ratingFor(e.getId(), ratings),
+                .map(e -> mapper.toEventFullDto(e, ratings.getOrDefault(e.getId(), 0.0),
+                        confirmedCounts.getOrDefault(e.getId(), 0L), ratingFor(e.getId(), ratingStats),
                         countFor(e.getId(), commentCounts),
                         initiators.getOrDefault(e.getInitiatorId(), new UserShortDto(e.getInitiatorId(), null))
                 ))
@@ -218,22 +196,18 @@ public class EventServiceImpl implements EventService {
     public EventFullDto updateByAdmin(Long eventId, UpdateEventAdminRequest dto) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EventNotFoundException(eventId));
-
         Category category = null;
         if (dto.getCategory() != null) {
             category = categoryRepository.findById(dto.getCategory())
                     .orElseThrow(() -> new CategoryNotFoundException(dto.getCategory()));
         }
-
         if (dto.getEventDate() != null) {
             LocalDateTime newDate = LocalDateTime.parse(dto.getEventDate(), FORMATTER);
             if (newDate.isBefore(LocalDateTime.now().plusHours(1))) {
                 throw new ValidationException("Field: eventDate. Error: должно содержать дату, которая еще не наступила. Value: " + dto.getEventDate());
             }
         }
-
         EventMapper.updateEventFromAdminRequest(event, dto, category);
-
         if (dto.getStateAction() != null) {
             switch (dto.getStateAction()) {
                 case PUBLISH_EVENT:
@@ -256,11 +230,10 @@ public class EventServiceImpl implements EventService {
                     throw new ValidationException("Unknown state action: " + dto.getStateAction());
             }
         }
-
         event = eventRepository.save(event);
         log.debug("Event updated by admin: {}", eventId);
-        return mapper.toEventFullDto(event, eventUtil.getViews(eventId),
-                eventUtil.getConfirmedRequests(eventId), getRating(eventId), getCommentCount(eventId),
+        return mapper.toEventFullDto(event, getRating(eventId),
+                eventUtil.getConfirmedRequests(eventId), getRatingStats(eventId), getCommentCount(eventId),
                 loadInitiator(event.getInitiatorId()));
     }
 
@@ -276,18 +249,14 @@ public class EventServiceImpl implements EventService {
         int from = request.getFrom() != null ? request.getFrom() : 0;
         int size = request.getSize() != null ? request.getSize() : 10;
         Long userId = request.getUserId();
-
         LocalDateTime start = rangeStart != null ? LocalDateTime.parse(rangeStart, FORMATTER) : null;
         LocalDateTime end = rangeEnd != null ? LocalDateTime.parse(rangeEnd, FORMATTER) : null;
-
         if (start != null && end != null && start.isAfter(end)) {
             throw new ValidationException("Field: rangeStart. Error: start must be before end. Value: rangeStart=" + rangeStart + ", rangeEnd=" + rangeEnd);
         }
-
         if (start == null && end == null) {
             start = LocalDateTime.now();
         }
-
         boolean commentsSort = "COMMENTS".equals(sort);
         boolean ratingSort = "RATING".equals(sort);
         boolean noPaginationSort = commentsSort || ratingSort;
@@ -303,19 +272,16 @@ public class EventServiceImpl implements EventService {
                     page
             ).getContent();
         }
-
-        Map<Long, Long> views = eventUtil.views(events.stream().map(Event::getId).toList());
-        Map<Long, Long> confirmedCounts = eventUtil.confirmed(events.stream().map(Event::getId).toList());
-        var aggregatedSocials = socialsReader.aggregate(events.stream().map(Event::getId).toList(), userId);
-        Map<Long, RatingStatsDto> ratings = aggregatedSocials.getRatings();
+        List<Long> eventIds = events.stream().map(Event::getId).toList();
+        Map<Long, Double> ratings = loadRatings(eventIds);
+        Map<Long, Long> confirmedCounts = eventUtil.confirmed(eventIds);
+        var aggregatedSocials = socialsReader.aggregate(eventIds, userId);
+        Map<Long, RatingStatsDto> ratingStats = aggregatedSocials.getRatings();
         Map<Long, Long> commentCounts = aggregatedSocials.getComments();
         List<EventShortDto> result = new ArrayList<>();
         List<EventShortDto> subscribedEvents = new ArrayList<>();
         List<EventShortDto> otherEvents = new ArrayList<>();
-
         Map<Long, UserShortDto> initiators = loadInitiators(events);
-
-
         Set<Long> followed = aggregatedSocials.getFollowed();
         for (Event e : events) {
             long confirmed = confirmedCounts.getOrDefault(e.getId(), 0L);
@@ -323,38 +289,31 @@ public class EventServiceImpl implements EventService {
                     && confirmed >= e.getParticipantLimit()) {
                 continue;
             }
-            EventShortDto dto = mapper.toEventShortDto(e, views.getOrDefault(e.getId(), 0L), confirmed,
-                    ratingFor(e.getId(), ratings), countFor(e.getId(), commentCounts
-                    ), initiators.getOrDefault(e.getInitiatorId(), new UserShortDto(e.getInitiatorId(), null)));
+            EventShortDto dto = mapper.toEventShortDto(e, ratings.getOrDefault(e.getId(), 0.0), confirmed,
+                    ratingFor(e.getId(), ratingStats), countFor(e.getId(), commentCounts),
+                    initiators.getOrDefault(e.getInitiatorId(), new UserShortDto(e.getInitiatorId(), null)));
             if (followed.contains(e.getInitiatorId())) {
                 subscribedEvents.add(dto);
             } else {
                 otherEvents.add(dto);
             }
         }
-
         if (commentsSort) {
             subscribedEvents.sort(Comparator.comparingLong(EventShortDto::getCommentCount).reversed());
             otherEvents.sort(Comparator.comparingLong(EventShortDto::getCommentCount).reversed());
         } else if (ratingSort) {
             Comparator<EventShortDto> byRating =
-                    Comparator.comparingLong(EventShortDto::getRating).reversed();
+                    Comparator.comparing((EventShortDto e) -> e.getRating() != null ? e.getRating() : 0.0).reversed();
             subscribedEvents.sort(byRating);
             otherEvents.sort(byRating);
-        } else if ("VIEWS".equals(sort)) {
-            subscribedEvents.sort(Comparator.comparingLong(EventShortDto::getViews));
-            otherEvents.sort(Comparator.comparingLong(EventShortDto::getViews));
         }
-
         result.addAll(subscribedEvents);
         result.addAll(otherEvents);
-
         if (noPaginationSort) {
             int startIndex = Math.min(from, result.size());
             int endIndex = Math.min(startIndex + size, result.size());
             return new ArrayList<>(result.subList(startIndex, endIndex));
         }
-
         return result;
     }
 
@@ -362,26 +321,72 @@ public class EventServiceImpl implements EventService {
     public EventFullDto getPublishedById(Long id) {
         Event event = eventRepository.findByIdAndState(id, EventState.PUBLISHED)
                 .orElseThrow(() -> new EventNotFoundException(id));
-
-        return mapper.toEventFullDto(event, eventUtil.getViews(id),
-                eventUtil.getConfirmedRequests(id), getRating(id), getCommentCount(id),
+        return mapper.toEventFullDto(event, getRating(id),
+                eventUtil.getConfirmedRequests(id), getRatingStats(id), getCommentCount(id),
                 loadInitiator(event.getInitiatorId()));
     }
 
-    private Map<Long, RatingStatsDto> getRatings(Collection<Event> events) {
-        return socialsReader.aggregate(events.stream().map(Event::getId).toList(), null).getRatings();
+    @Override
+    public List<EventShortDto> getRecommendations(long userId, int limit) {
+        log.debug("Получение рекомендаций для пользователя {} с лимитом {}", userId, limit);
+        List<RecommendedEventProto> recommendations = analyzerClient.getRecommendationsForUser(userId, limit);
+        if (recommendations.isEmpty()) {
+            return List.of();
+        }
+        List<Long> eventIds = recommendations.stream()
+                .map(RecommendedEventProto::getEventId)
+                .toList();
+        List<Event> events = eventRepository.findAllById(eventIds);
+        Map<Long, Double> ratings = recommendations.stream()
+                .collect(Collectors.toMap(RecommendedEventProto::getEventId, RecommendedEventProto::getScore, (a, b) -> a));
+        Map<Long, Long> confirmedCounts = eventUtil.confirmed(eventIds);
+        var aggregatedSocials = socialsReader.aggregate(eventIds, userId);
+        Map<Long, RatingStatsDto> ratingStats = aggregatedSocials.getRatings();
+        Map<Long, Long> commentCounts = aggregatedSocials.getComments();
+        Map<Long, UserShortDto> initiators = loadInitiators(events);
+        return events.stream()
+                .map(e -> EventMapper.toEventShortDto(
+                        e,
+                        ratings.getOrDefault(e.getId(), 0.0),
+                        confirmedCounts.getOrDefault(e.getId(), 0L),
+                        ratingFor(e.getId(), ratingStats),
+                        countFor(e.getId(), commentCounts),
+                        initiators.getOrDefault(e.getInitiatorId(), new UserShortDto(e.getInitiatorId(), null))
+                ))
+                .collect(Collectors.toList());
     }
 
-    private RatingStatsDto getRating(Long eventId) {
+    @Override
+    @Transactional
+    public void likeEvent(long userId, long eventId) {
+        log.debug("Попытка лайка мероприятия {} пользователем {}", eventId, userId);
+        if (!analyzerClient.hasUserViewedEvent(userId, eventId)) {
+            throw new ValidationException("User can only like visited events");
+        }
+        collectorClient.sendLike(userId, eventId);
+        log.debug("Лайк мероприятия {} пользователем {} отправлен", eventId, userId);
+    }
+
+    private Map<Long, Double> loadRatings(List<Long> eventIds) {
+        if (eventIds.isEmpty()) return Map.of();
+        return eventIds.stream()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        analyzerClient::getEventRating,
+                        (a, b) -> a
+                ));
+    }
+
+    private Double getRating(Long eventId) {
+        return analyzerClient.getEventRating(eventId);
+    }
+
+    private RatingStatsDto getRatingStats(Long eventId) {
         return ratingFor(eventId, socialsReader.aggregate(List.of(eventId), null).getRatings());
     }
 
     private RatingStatsDto ratingFor(Long eventId, Map<Long, RatingStatsDto> ratings) {
         return ratings.getOrDefault(eventId, RatingStatsDto.EMPTY);
-    }
-
-    private Map<Long, Long> getCommentCounts(Collection<Event> events) {
-        return socialsReader.aggregate(events.stream().map(Event::getId).toList(), null).getComments();
     }
 
     private Long getCommentCount(Long eventId) {

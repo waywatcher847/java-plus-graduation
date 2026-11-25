@@ -5,7 +5,6 @@ import ru.practicum.ewm.dto.event.*;
 import java.util.List;
 
 public interface EventService {
-
     EventFullDto create(Long userId, NewEventDto dto);
 
     List<EventShortDto> getAllByUser(Long userId, Integer from, Integer size);
@@ -21,4 +20,8 @@ public interface EventService {
     List<EventShortDto> getPublished(EventSearchRequest request);
 
     EventFullDto getPublishedById(Long id);
+
+    List<EventShortDto> getRecommendations(long userId, int limit);
+
+    void likeEvent(long userId, long eventId);
 }

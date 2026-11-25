@@ -39,7 +39,6 @@ public class CompilationMapper {
         List<Event> events = model.getEvents() != null ? model.getEvents().stream()
                 .map(CompilationEvent::getEvent)
                 .toList() : List.of();
-
         return CompilationDtoResponse.builder()
                 .id(model.getId())
                 .pinned(model.getPinned())
@@ -51,9 +50,9 @@ public class CompilationMapper {
                     );
                     return EventMapper.toEventShortDto(
                             event,
-                            context.getViews().getOrDefault(event.getId(), 0L),
+                            context.getRatings().getOrDefault(event.getId(), 0.0),
                             context.getConfirmed().getOrDefault(event.getId(), 0L),
-                            context.getRatings().getOrDefault(event.getId(), RatingStatsDto.EMPTY),
+                            context.getRatingStats().getOrDefault(event.getId(), RatingStatsDto.EMPTY),
                             context.getComments().getOrDefault(event.getId(), 0L),
                             initiator
                     );

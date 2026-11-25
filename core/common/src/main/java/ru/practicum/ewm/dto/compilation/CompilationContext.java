@@ -10,9 +10,9 @@ import java.util.Map;
 @Getter
 @Builder
 public class CompilationContext {
-    private final Map<Long, Long> views;
+    private final Map<Long, Double> ratings;
     private final Map<Long, Long> confirmed;
-    private final Map<Long, RatingStatsDto> ratings;
+    private final Map<Long, RatingStatsDto> ratingStats;
     private final Map<Long, Long> comments;
     private final Map<Long, UserShortDto> initiators;
 }

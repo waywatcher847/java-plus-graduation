@@ -12,6 +12,14 @@ spring:
       retry:
         max-attempts: 5
         max-interval: 2000
+grpc:
+  client:
+    collector:
+      address: 'discovery:///collector'
+      negotiationType: PLAINTEXT
+    analyzer:
+      address: 'discovery:///analyzer'
+      negotiationType: PLAINTEXT
 
 eureka:
   client:
